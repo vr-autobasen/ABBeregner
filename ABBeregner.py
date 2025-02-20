@@ -154,7 +154,6 @@ def get_vehicle_overview(registration_number, api_token):
         return {
             'brand_model': f"{basic_data.get('brand', 'N/A')} {basic_data.get('model', 'N/A')}",
             'variant': basic_data.get('variant', 'N/A'),
-            'body_type': basic_data.get('body_type', 'N/A'),
             'usage': basic_data.get('usage', 'N/A'),
             'first_registration_date': basic_data.get('first_registration_date', 'N/A'),
             'last_inspection_date': basic_data.get('last_inspection_date', 'N/A'),
@@ -557,15 +556,13 @@ def main():
 
             print("\n## Køretøjsoverblik ##")
             print(f"Bil: {vehicle_overview['brand_model']} {vehicle_overview['variant']}")
-            print(f"Karosseri: {vehicle_overview['body_type']}")
             print(f"Kilometerstand (HubSpot): {hubspot_km}")
             print(f"Anvendelse: {vehicle_overview['usage']}")
             print(f"Første reg. {vehicle_overview['first_registration_date']}")
-
-            print(f"Motor: {vehicle_overview['horsepower']} HK")
-            print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
             print(
                 f"Sidste syn: {vehicle_overview['last_inspection_date']} - Resultat: {vehicle_overview['last_inspection_result']}")
+            print(f"Motor: {vehicle_overview['horsepower']} HK")
+            print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
             print("-" * 50)
 
             handelspris_input = float(input("Indtast handelsprisen: "))
