@@ -20,8 +20,6 @@ def load_config():
     except FileNotFoundError:
         raise Exception("config.txt fil ikke fundet i samme mappe som scriptet")
 
-
-
 def check_for_updates():
     github_url = "https://raw.githubusercontent.com/vr-autobasen/ABBeregner/refs/heads/main/ABBeregner.py"
     current_script = os.path.abspath(__file__)
@@ -122,12 +120,51 @@ def fetch_hubspot_mileage(registration_number, api_key):
 
         deals = response.json().get("results", [])
         if deals:
-            return deals[0].get("properties", {}).get("kilometer")
+            deal = deals[0]
+            return {
+                "kilometer": deal.get("properties", {}).get("kilometer"),
+                "deal_id": deal.get("id")  # Sikrer at vi får deal_id med
+            }
         return None
     except Exception as e:
         print(f"Fejl ved hentning af kilometertal fra HubSpot: {str(e)}")
         return None
 
+
+def get_vehicle_overview(registration_number, api_token):
+    # Hent basis køretøjsdata
+    url = f"https://api.synsbasen.dk/v1/vehicles/registration/{registration_number}"
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        # Hent basisdata
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        basic_data = response.json()["data"]
+
+        # Hent motordata
+        engine_url = f"{url}?expand[]=engine"
+        engine_response = requests.get(engine_url, headers=headers)
+        engine_response.raise_for_status()
+        engine_data = engine_response.json()["data"]["engine"]
+
+        return {
+            'brand_model': f"{basic_data.get('brand', 'N/A')} {basic_data.get('model', 'N/A')}",
+            'variant': basic_data.get('variant', 'N/A'),
+            'usage': basic_data.get('usage', 'N/A'),
+            'first_registration_date': basic_data.get('first_registration_date', 'N/A'),
+            'last_inspection_date': basic_data.get('last_inspection_date', 'N/A'),
+            'last_inspection_result': basic_data.get('last_inspection_result', 'N/A'),
+
+
+            'horsepower': engine_data.get('horsepower', 'N/A'),
+            'leasing_period_end': basic_data.get('leasing_period_end', 'Ikke leaset')
+        }
+    except Exception as e:
+        raise Exception(f"Fejl ved hentning af køretøjsoverblik: {str(e)}")
 
 def fetch_basic_vehicle_data(registration_number, api_token):
     url = f"https://api.synsbasen.dk/v1/vehicles/registration/{registration_number}"
@@ -413,6 +450,38 @@ def get_export_tax(sheets, vehicle_type, registration_tax):
     return float(result.get('values', [[0]])[0][0])
 
 
+def update_hubspot_deal_values(deal_id, eur_price, reduced_tax, api_key):
+    if not deal_id:
+        print("Ingen deal_id tilgængelig - springer HubSpot opdatering over")
+        return
+
+    url = f"https://api.hubapi.com/crm/v3/objects/deals/{deal_id}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    # Konverter værdierne til strings og fjern eventuelle decimaler
+    eur_price_str = str(int(float(eur_price)))
+    reduced_tax_str = str(int(float(reduced_tax)))
+
+    data = {
+        "properties": {
+            "estimeret_salgspris_i_euro": eur_price_str,
+            "ca_eksportafgiftvurdering": reduced_tax_str
+        }
+    }
+
+    try:
+        response = requests.patch(url, headers=headers, json=data)
+        response.raise_for_status()
+        print("HubSpot deal er blevet opdateret med Euro pris og eksportafgift")
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP fejl ved opdatering af HubSpot deal: {http_err.response.text}")
+    except Exception as e:
+        print(f"Generel fejl ved opdatering af HubSpot deal: {str(e)}")
+
+
 
 def log_to_file(registration_number, type, vehicle_info, new_price, export_tax, reduced_tax, handelspris_input, norm_km_input, current_km_input, sheet_handelspris, age_group, eur_price, dkk_converted, total_sum):
     if not os.path.exists('logs'):
@@ -477,13 +546,32 @@ def main():
             vehicle_age = calculate_vehicle_age(basic_data['registration_date'])
             print(f"Bilens alder: {vehicle_age} år")
 
+            # I main()-funktionen, efter du har hentet registration_number
+            print("\nHenter køretøjsoverblik...")
+            vehicle_overview = get_vehicle_overview(registration_number, api_token)
+
+            # Hent HubSpot kilometer
+            hubspot_data = fetch_hubspot_mileage(registration_number, config['HUBSPOT_API_KEY'])
+            hubspot_km = hubspot_data.get("kilometer", "N/A") if hubspot_data else "N/A"
+
+            print("\n## Køretøjsoverblik ##")
+            print(f"Bil: {vehicle_overview['brand_model']} {vehicle_overview['variant']}")
+            print(f"Kilometerstand (HubSpot): {hubspot_km}")
+            print(f"Anvendelse: {vehicle_overview['usage']}")
+            print(f"Første reg. {vehicle_overview['first_registration_date']}")
+            print(
+                f"Sidste syn: {vehicle_overview['last_inspection_date']} - Resultat: {vehicle_overview['last_inspection_result']}")
+            print(f"Motor: {vehicle_overview['horsepower']} HK")
+            print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
+            print("-" * 50)
+
             handelspris_input = float(input("Indtast handelsprisen: "))
             norm_km_input = float(input("Indtast norm km: "))
 
-            # Erstat den eksisterende kilometer-input linje med:
-            hubspot_km = fetch_hubspot_mileage(registration_number, config['HUBSPOT_API_KEY'])
-            if hubspot_km:
-                current_km_input = float(hubspot_km)
+            # Erstat den eksisterende HubSpot kilometer håndtering med denne kode:
+            hubspot_data = fetch_hubspot_mileage(registration_number, config['HUBSPOT_API_KEY'])
+            if hubspot_data and hubspot_data.get("kilometer"):
+                current_km_input = float(hubspot_data["kilometer"])
                 print(f"Kilometertal hentet fra HubSpot: {current_km_input}")
             else:
                 current_km_input = float(input("Indtast bilens kørte kilometer: "))
@@ -541,7 +629,12 @@ def main():
             if is_manual_price:
                 print("Bemærk: KRÆVER DOBBELTTJEK")
 
-            # Log alle værdier
+            # Erstat denne del i main()-funktionen:
+            if hubspot_data:  # Brug hubspot_data i stedet for hubspot_km
+                deal_id = hubspot_data.get('deal_id')
+                update_hubspot_deal_values(deal_id, eur_price, reduced_tax, config['HUBSPOT_API_KEY'])
+
+                                           # Log alle værdier
             log_to_file(registration_number, vehicle_type, vehicle_info, new_price,
                         export_tax, reduced_tax, handelspris_input, norm_km_input,
                         current_km_input, handelspris, age_group, eur_price,
