@@ -564,7 +564,7 @@ def main():
             print(f"Første reg. {vehicle_overview['first_registration_date']}")
 
             print(f"Motor: {vehicle_overview['horsepower']} HK")
-            print(f"Slagvolumen: {vehicle_overview['engine_displacement']}" ccm)
+            print(f"Slagvolumen: {vehicle_overview['engine_displacement']} ccm")
             print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
             print(
                 f"Sidste syn: {vehicle_overview['last_inspection_date']} - Resultat: {vehicle_overview['last_inspection_result']}")
