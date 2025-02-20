@@ -5,6 +5,8 @@ import requests
 from datetime import datetime
 import socket
 import time
+import hashlib
+import sys
 
 def load_config():
     try:
@@ -18,6 +20,36 @@ def load_config():
     except FileNotFoundError:
         raise Exception("config.txt fil ikke fundet i samme mappe som scriptet")
 
+
+
+def check_for_updates():
+    github_url = "https://raw.githubusercontent.com/vr-autobasen/ABBeregner/refs/heads/main/ABBeregner.py"
+    current_script = os.path.abspath(__file__)
+
+    try:
+        # Hent den nyeste version fra GitHub
+        response = requests.get(github_url)
+        if response.status_code == 200:
+            online_content = response.text
+
+            # Læs den nuværende fil
+            with open(current_script, 'r', encoding='utf-8') as f:
+                local_content = f.read()
+
+            # Sammenlign ved hjælp af hash
+            online_hash = hashlib.md5(online_content.encode()).hexdigest()
+            local_hash = hashlib.md5(local_content.encode()).hexdigest()
+
+            if online_hash != local_hash:
+                print("Der er fundet en ny version. Opdaterer...")
+                with open(current_script, 'w', encoding='utf-8') as f:
+                    f.write(online_content)
+                print("Opdatering gennemført. Genstarter programmet...")
+                os.execv(sys.executable, ['python'] + sys.argv)
+            else:
+                print("Programmet er opdateret til seneste version.")
+    except Exception as e:
+        print(f"Kunne ikke tjekke for opdateringer: {str(e)}")
 
 
 
@@ -526,5 +558,5 @@ def main():
             continue
 
 if __name__ == "__main__":
-
+    check_for_updates()
     main()
