@@ -156,7 +156,6 @@ def get_vehicle_overview(registration_number, api_token):
             'variant': basic_data.get('variant', 'N/A'),
             'body_type': basic_data.get('body_type', 'N/A'),
             'usage': basic_data.get('usage', 'N/A'),
-            'engine_displacement': basic_data.get('engine_displacement', 'N/A'),
             'first_registration_date': basic_data.get('first_registration_date', 'N/A'),
             'last_inspection_date': basic_data.get('last_inspection_date', 'N/A'),
             'last_inspection_result': basic_data.get('last_inspection_result', 'N/A'),
@@ -564,7 +563,7 @@ def main():
             print(f"Første reg. {vehicle_overview['first_registration_date']}")
 
             print(f"Motor: {vehicle_overview['horsepower']} HK")
-            print(f"Slagvolumen: {vehicle_overview['engine_displacement']} ccm")
+            print(f"Slagvolumen: {vehicle_overview['engine_displacement']}")
             print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
             print(
                 f"Sidste syn: {vehicle_overview['last_inspection_date']} - Resultat: {vehicle_overview['last_inspection_result']}")
