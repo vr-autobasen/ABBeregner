@@ -157,12 +157,13 @@ def get_vehicle_overview(registration_number, api_token):
             'body_type': basic_data.get('body_type', 'N/A'),
             'usage': basic_data.get('usage', 'N/A'),
             'first_registration_date': basic_data.get('first_registration_date', 'N/A'),
-            'engine_displacement': engine_data.get('engine_displacement', 'N/A'),
+            
             'last_inspection_date': basic_data.get('last_inspection_date', 'N/A'),
             'last_inspection_result': basic_data.get('last_inspection_result', 'N/A'),
 
-
+            'fuel_type': engine_data.get('fuel_type', 'N/A'),
             'horsepower': engine_data.get('horsepower', 'N/A'),
+            'engine_displacement': engine_data.get('engine_displacement', 'N/A'),
             'leasing_period_end': basic_data.get('leasing_period_end', 'Ikke leaset')
         }
     except Exception as e:
@@ -562,7 +563,7 @@ def main():
             print(f"Kilometerstand (HubSpot): {hubspot_km}")
             print(f"Anvendelse: {vehicle_overview['usage']}")
             print(f"Første reg. {vehicle_overview['first_registration_date']}")
-
+            print(f"Brændstof: {vehicle_overview['fuel_type']}")
             print(f"Motor: {vehicle_overview['horsepower']} HK")
             print(f"Slagvolumen: {vehicle_overview['engine_displacement']} ccm")
             print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
