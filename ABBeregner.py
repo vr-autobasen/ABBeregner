@@ -157,7 +157,7 @@ def get_vehicle_overview(registration_number, api_token):
             'body_type': basic_data.get('body_type', 'N/A'),
             'usage': basic_data.get('usage', 'N/A'),
             'first_registration_date': basic_data.get('first_registration_date', 'N/A'),
-            
+
             'last_inspection_date': basic_data.get('last_inspection_date', 'N/A'),
             'last_inspection_result': basic_data.get('last_inspection_result', 'N/A'),
 
@@ -414,13 +414,21 @@ def update_vehicle_data(sheets, vehicle_type, total_weight, handelspris, new_pri
             body={'values': update['values']}
         ).execute()
 
-def get_export_tax(sheets, vehicle_type):
+
+def get_export_tax(sheets, vehicle_type, registration_tax):
+    # Hent eksportafgift fra sheet
     tax_range = 'Brugte Varebiler!G32' if vehicle_type == "Varebil" else 'finalTax01'
     result = sheets.values().get(
         spreadsheetId=TAX_SPREADSHEET_ID,
         range=tax_range
     ).execute()
-    return float(result.get('values', [[0]])[0][0])
+
+    # Hent værdien fra sheet
+    export_tax = float(result.get('values', [[0]])[0][0])
+    registration_tax = float(registration_tax)
+
+    # Returner den mindste værdi
+    return min(export_tax, registration_tax)
 
 def calculate_new_price(eval_data, manual_price=None):
     if manual_price is not None:
@@ -441,16 +449,6 @@ def calculate_new_price(eval_data, manual_price=None):
         return None
 
 
-def get_export_tax(sheets, vehicle_type, registration_tax):
-    # Hent altid eksportafgift fra sheet
-    tax_range = 'Brugte Varebiler!G32' if vehicle_type == "Varebil" else 'finalTax01'
-    result = sheets.values().get(
-        spreadsheetId=TAX_SPREADSHEET_ID,
-        range=tax_range
-    ).execute()
-
-    # Returner altid værdien fra sheetet
-    return float(result.get('values', [[0]])[0][0])
 
 
 def update_hubspot_deal_values(deal_id, eur_price, reduced_tax, api_key):
@@ -569,10 +567,12 @@ def main():
             print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
             print(
                 f"Sidste syn: {vehicle_overview['last_inspection_date']} - Resultat: {vehicle_overview['last_inspection_result']}")
+
             print("-" * 50)
 
             handelspris_input = float(input("Indtast handelsprisen: "))
             norm_km_input = float(input("Indtast norm km: "))
+
 
             # Erstat den eksisterende HubSpot kilometer håndtering med denne kode:
             hubspot_data = fetch_hubspot_mileage(registration_number, config['HUBSPOT_API_KEY'])
@@ -581,6 +581,7 @@ def main():
                 print(f"Kilometertal hentet fra HubSpot: {current_km_input}")
             else:
                 current_km_input = float(input("Indtast bilens kørte kilometer: "))
+
 
             update_km_data(sheets, handelspris_input, norm_km_input, current_km_input)
             handelspris, age_group = find_trade_price_based_on_age(sheets, vehicle_age)
@@ -616,6 +617,7 @@ def main():
                 print(f"Totalvægt: {total_weight} kg")
             print(f"Køretøj: {vehicle_info}")
             print(f"Nypris: {new_price:,.2f} kr.")
+            print(f"Reg. afgift: {registration_tax}")
             print(f"Eksportafgift: {export_tax:.2f} kr.")
             reduced_tax = (export_tax * 0.85 - 3000) if export_tax > 50000 else export_tax - 11000
 
