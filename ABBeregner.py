@@ -482,6 +482,11 @@ def update_hubspot_deal_values(deal_id, eur_price, reduced_tax, api_key):
     except Exception as e:
         print(f"Generel fejl ved opdatering af HubSpot deal: {str(e)}")
 
+def calculate_reduced_tax(export_tax, vehicle_type):
+        if vehicle_type == "Varebil":
+            return export_tax - 7500
+        else:
+            return (export_tax * 0.85 - 3000) if export_tax > 50000 else export_tax - 11000
 
 
 def log_to_file(registration_number, type, vehicle_info, new_price, export_tax, reduced_tax, handelspris_input, norm_km_input, current_km_input, sheet_handelspris, age_group, eur_price, dkk_converted, total_sum):
@@ -620,7 +625,8 @@ def main():
             print(f"Nypris: {new_price:,.2f} kr.")
             print(f"Reg. afgift: {registration_tax}")
             print(f"Eksportafgift: {export_tax:.2f} kr.")
-            reduced_tax = (export_tax * 0.85 - 3000) if export_tax > 50000 else export_tax - 11000
+            reduced_tax = calculate_reduced_tax(export_tax, vehicle_type)
+
 
             print(f"Eksportafgift efter reduktion: {reduced_tax:.2f} kr.")
 
