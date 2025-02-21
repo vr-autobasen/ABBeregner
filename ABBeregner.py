@@ -554,7 +554,7 @@ def main():
             # Hent HubSpot kilometer
             hubspot_data = fetch_hubspot_mileage(registration_number, config['HUBSPOT_API_KEY'])
             hubspot_km = hubspot_data.get("kilometer", "N/A") if hubspot_data else "N/A"
-
+            registration_tax = eval_data['registration_tax']
             print("\n## Køretøjsoverblik ##")
             print(f"Bil: {vehicle_overview['brand_model']} {vehicle_overview['variant']}")
             print(f"Karosseri: {vehicle_overview['body_type']}")
@@ -564,6 +564,7 @@ def main():
             print(f"Brændstof: {vehicle_overview['fuel_type']}")
             print(f"Motor: {vehicle_overview['horsepower']} HK")
             print(f"Slagvolumen: {vehicle_overview['engine_displacement']} ccm")
+            print(f"Reg. afgift: {registration_tax}")
             print(f"Leaset?: {vehicle_overview['leasing_period_end']}")
             print(
                 f"Sidste syn: {vehicle_overview['last_inspection_date']} - Resultat: {vehicle_overview['last_inspection_result']}")
