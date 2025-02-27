@@ -338,7 +338,7 @@ def find_trade_price_based_on_age(sheets, vehicle_age):
                 trade_price = values[4]
                 age_group = "Over 10 år"
 
-            return float(trade_price) * 1000, age_group
+            return float(trade_price) , age_group
         except socket.error:
             if attempt < max_attempts - 1:
                 time.sleep(2 ** attempt)
@@ -598,10 +598,14 @@ def main():
             is_manual_price = False  # Tilføj denne variabel
 
             if new_price is None:
-                manual_price = input("Kunne ikke beregne nypris automatisk. Indtast manuel nypris: ")
-                new_price = calculate_new_price(eval_data, manual_price)
-                is_manual_price = True  # Sæt til True når manuel pris er indtastet
-
+                while True:
+                    try:
+                        manual_price = input("Kunne ikke beregne nypris automatisk. Indtast manuel nypris: ").strip()
+                        new_price = float(manual_price)  # Konverterer direkte til float
+                        is_manual_price = True
+                        break  # Afbryd while-løkken når vi har en gyldig værdi
+                    except ValueError:
+                        print("Fejl: Indtast venligst et gyldigt tal")
             engine_data = fetch_engine_data(registration_number, api_token)
             update_co2_in_sheets(sheets, engine_data['fuel_type'], engine_data['fuel_efficiency'],
                                  basic_data['registration_date'], vehicle_type)
