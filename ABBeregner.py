@@ -254,6 +254,105 @@ def fetch_weight_data(registration_number, api_token):
         raise Exception(f"Fejl ved hentning af vægtdata: {str(e)}")
 
 
+def fetch_fuel_types_data(registration_number, api_token):
+    url = f"https://api.synsbasen.dk/v1/vehicles/registration/{registration_number}?expand[]=fuel_types"
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json().get("data", {}).get("fuel_types", [])
+    except Exception as e:
+        print(f"Fejl ved hentning af fuel_types data: {str(e)}")
+        return []
+
+
+def handle_co2_calculation(sheets, registration_number, api_token, fuel_type, fuel_efficiency, registration_date,
+                           vehicle_type):
+    # Hent fuel_types data fra API
+    fuel_types_data = fetch_fuel_types_data(registration_number, api_token)
+
+    # Hvis ingen fuel_types data, brug den gamle metode med beregner
+    if not fuel_types_data:
+        print("Ingen fuel_types data fundet - bruger CO2 beregner med NEDC")
+        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type)
+        return
+
+    # Tjek om der kun er én norm_type og den er 'nedc-2'
+    norm_type_name = fuel_types_data[0].get('norm_type_name')
+    if len(fuel_types_data) == 1 and norm_type_name and norm_type_name.lower() == 'nedc-2':
+        print("norm_type er 'nedc-2' - sætter CO2 til 0")
+        set_co2_value(sheets, 0, vehicle_type)
+        return
+
+    # Find WLTP data hvis tilgængelig
+    wltp_data = None
+    for data in fuel_types_data:
+        norm_type = data.get('norm_type_name')
+        if norm_type and norm_type.lower() == 'wltp':
+            wltp_data = data
+            break
+
+    # Hvis WLTP data findes, brug CO2 værdien direkte
+    if wltp_data and 'co2' in wltp_data:
+        print(f"Bruger WLTP CO2 værdi: {wltp_data['co2']}")
+        set_co2_value(sheets, wltp_data['co2'], vehicle_type)
+    else:
+        # Hvis ingen WLTP data, brug beregner med NEDC
+        print("Ingen WLTP data fundet - bruger CO2 beregner med NEDC")
+        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type)
+
+def update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type):
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            if isinstance(fuel_efficiency, str):
+                fuel_efficiency_formatted = fuel_efficiency.replace(".", ".")
+            else:
+                fuel_efficiency_formatted = str(fuel_efficiency).replace(".", ".")
+
+            updates = [
+                {'range': 'Værktøj til CO2!C26', 'values': [["NEDC"]]},
+                {'range': 'Værktøj til CO2!C27', 'values': [[fuel_type]]},
+                {'range': 'Værktøj til CO2!C25', 'values': [[fuel_efficiency_formatted]]}
+            ]
+
+            for update in updates:
+                sheets.values().update(
+                    spreadsheetId=TAX_SPREADSHEET_ID,
+                    range=update['range'],
+                    valueInputOption='USER_ENTERED',
+                    body={'values': update['values']}
+                ).execute()
+
+            result = sheets.values().get(
+                spreadsheetId=TAX_SPREADSHEET_ID,
+                range='Værktøj til CO2!C30'
+            ).execute()
+            co2_value = result.get('values', [[0]])[0][0]
+
+            set_co2_value(sheets, co2_value, vehicle_type)
+            break
+        except socket.error:
+            if attempt < max_attempts - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise
+
+
+def set_co2_value(sheets, co2_value, vehicle_type):
+    target_range = 'Brugte Varebiler!L23' if vehicle_type == "Varebil" else 'co2km01'
+    sheets.values().update(
+        spreadsheetId=TAX_SPREADSHEET_ID,
+        range=target_range,
+        valueInputOption='USER_ENTERED',
+        body={'values': [[co2_value]]}
+    ).execute()
+
+
 def update_km_data(sheets, handelspris, norm_km, current_km):
     max_attempts = 3
     for attempt in range(max_attempts):
@@ -607,8 +706,9 @@ def main():
                     except ValueError:
                         print("Fejl: Indtast venligst et gyldigt tal")
             engine_data = fetch_engine_data(registration_number, api_token)
-            update_co2_in_sheets(sheets, engine_data['fuel_type'], engine_data['fuel_efficiency'],
-                                 basic_data['registration_date'], vehicle_type)
+            handle_co2_calculation(sheets, registration_number, api_token, engine_data['fuel_type'],
+                       engine_data['fuel_efficiency'], basic_data['registration_date'], vehicle_type)
+
 
             update_vehicle_data(sheets, vehicle_type, total_weight, handelspris, new_price)
 
@@ -670,5 +770,5 @@ def main():
             continue
 
 if __name__ == "__main__":
-    check_for_updates()
+check_for_updates()
     main()
