@@ -770,5 +770,5 @@ def main():
             continue
 
 if __name__ == "__main__":
-check_for_updates()
+    check_for_updates()
     main()
