@@ -296,14 +296,15 @@ def handle_co2_calculation(sheets, registration_number, api_token, fuel_type, fu
             wltp_data = data
             break
 
-    # Hvis WLTP data findes, brug CO2 værdien direkte
-    if wltp_data and 'co2' in wltp_data:
+    # Hvis WLTP data findes og CO2 værdien er valid, brug den direkte
+    if wltp_data and 'co2' in wltp_data and wltp_data['co2'] is not None:
         print(f"Bruger WLTP CO2 værdi: {wltp_data['co2']}")
         set_co2_value(sheets, wltp_data['co2'], vehicle_type)
     else:
-        # Hvis ingen WLTP data, brug beregner med NEDC
-        print("Ingen WLTP data fundet - bruger CO2 beregner med NEDC")
+        # Hvis ingen WLTP data eller CO2 er null, brug beregner med NEDC
+        print("Ingen valid WLTP CO2 data fundet - bruger CO2 beregner med NEDC")
         update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type)
+
 
 def update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type):
     max_attempts = 3
