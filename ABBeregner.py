@@ -278,35 +278,35 @@ def handle_co2_calculation(sheets, registration_number, api_token, fuel_type, fu
     # Hvis ingen fuel_types data, brug den gamle metode med beregner
     if not fuel_types_data:
         print("Ingen fuel_types data fundet - bruger CO2 beregner med NEDC")
-        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type)
-        return
-
-    # Tjek om der kun er én norm_type og den er 'nedc-2'
-    norm_type_name = fuel_types_data[0].get('norm_type_name')
-    if len(fuel_types_data) == 1 and norm_type_name and norm_type_name.lower() == 'nedc-2':
-        print("norm_type er 'nedc-2' - sætter CO2 til 0")
-        set_co2_value(sheets, 0, vehicle_type)
+        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type, "NEDC")
         return
 
     # Find WLTP data hvis tilgængelig
     wltp_data = None
+    nedc2_data = None
     for data in fuel_types_data:
         norm_type = data.get('norm_type_name')
-        if norm_type and norm_type.lower() == 'wltp':
-            wltp_data = data
-            break
+        if norm_type:
+            if norm_type.lower() == 'wltp':
+                wltp_data = data
+            elif norm_type.lower() == 'nedc-2':
+                nedc2_data = data
 
     # Hvis WLTP data findes og CO2 værdien er valid, brug den direkte
     if wltp_data and 'co2' in wltp_data and wltp_data['co2'] is not None:
         print(f"Bruger WLTP CO2 værdi: {wltp_data['co2']}")
         set_co2_value(sheets, wltp_data['co2'], vehicle_type)
+    elif nedc2_data:
+        # Hvis NEDC-2 data findes, brug beregneren med NEDC-2
+        print("Bruger CO2 beregner med NEDC-2")
+        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type, "NEDC-2")
     else:
-        # Hvis ingen WLTP data eller CO2 er null, brug beregner med NEDC
-        print("Ingen valid WLTP CO2 data fundet - bruger CO2 beregner med NEDC")
-        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type)
+        # Hvis hverken WLTP eller NEDC-2 data findes, brug beregner med NEDC
+        print("Ingen valid WLTP eller NEDC-2 data fundet - bruger CO2 beregner med NEDC")
+        update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type, "NEDC")
 
 
-def update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type):
+def update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_type, norm_type):
     max_attempts = 3
     for attempt in range(max_attempts):
         try:
@@ -316,7 +316,7 @@ def update_co2_in_sheets_with_nedc(sheets, fuel_type, fuel_efficiency, vehicle_t
                 fuel_efficiency_formatted = str(fuel_efficiency).replace(".", ".")
 
             updates = [
-                {'range': 'Værktøj til CO2!C26', 'values': [["NEDC"]]},
+                {'range': 'Værktøj til CO2!C26', 'values': [[norm_type]]},
                 {'range': 'Værktøj til CO2!C27', 'values': [[fuel_type]]},
                 {'range': 'Værktøj til CO2!C25', 'values': [[fuel_efficiency_formatted]]}
             ]
