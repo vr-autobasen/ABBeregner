@@ -623,6 +623,42 @@ def log_to_file(registration_number, type, vehicle_info, new_price, export_tax, 
         f.write(log_entry)
 
 
+
+def log_to_google_sheets(sheets, spreadsheet_id, registration_number, type, vehicle_info, new_price, export_tax,
+                         reduced_tax, handelspris_input, norm_km_input, current_km_input, sheet_handelspris, age_group,
+                         eur_price, dkk_converted, total_sum):
+    # Opret en timestamp
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    # Forbered data til indsættelse i samme format som den lokale log
+    log_data = [
+        timestamp,
+        registration_number,
+        type,
+        vehicle_info,
+        handelspris_input,
+        norm_km_input,
+        current_km_input,
+        sheet_handelspris,
+        age_group,
+        new_price,
+        export_tax,
+        reduced_tax,
+        eur_price,
+        dkk_converted,
+        total_sum
+    ]
+
+    # Indsæt data i Google Sheets
+    sheets.values().append(
+        spreadsheetId=spreadsheet_id,
+        range='Logs!A:O',  # Tilpas til dit regneark
+        valueInputOption='USER_ENTERED',
+        insertDataOption='INSERT_ROWS',
+        body={'values': [log_data]}
+    ).execute()
+
+
 def main():
     config = load_config()
 
@@ -754,14 +790,16 @@ def main():
                 deal_id = hubspot_data.get('deal_id')
                 update_hubspot_deal_values(deal_id, eur_price, reduced_tax, config['HUBSPOT_API_KEY'])
 
-                                           # Log alle værdier
+            # Log alle værdier
             log_to_file(registration_number, vehicle_type, vehicle_info, new_price,
                         export_tax, reduced_tax, handelspris_input, norm_km_input,
                         current_km_input, handelspris, age_group, eur_price,
                         dkk_converted, total_sum)
 
-
-
+            # Tilføj central logføring til Google Sheets
+            log_to_google_sheets(sheets, config['LOG_SPREADSHEET_ID'], registration_number, vehicle_type, vehicle_info,
+                                 new_price, export_tax, reduced_tax, handelspris_input, norm_km_input, current_km_input,
+                                 handelspris, age_group, eur_price, dkk_converted, total_sum)
 
 
 
