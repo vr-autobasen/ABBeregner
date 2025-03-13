@@ -788,7 +788,7 @@ def main():
                 print(f"Totalvægt: {total_weight} kg")
             print(f"Køretøj: {vehicle_info}")
             print(f"Nypris: {new_price:,.2f} kr.")
-            print(f"Reg. afgift: {export_refund_ceiling:,.2f} kr.")
+            print(f"Eksportloft: {export_refund_ceiling:,.2f} kr.")
             print(f"Eksportafgift: {export_tax:.2f} kr.")
             reduced_tax = calculate_reduced_tax(export_tax, vehicle_type)
 
