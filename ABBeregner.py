@@ -395,16 +395,34 @@ def fetch_evaluation_data(registration_number, api_token):
         if not appraisals.get("service_available") or not appraisals.get("data"):
             raise Exception("Ingen vurderingsdata tilgængelig")
 
-        # Sorter efter dato og tag den nyeste vurdering
-        latest_appraisal = sorted(appraisals["data"], key=lambda x: x["date"], reverse=True)[0]
-
+        # Sorter alle vurderinger efter dato (nyeste først)
+        sorted_appraisals = sorted(appraisals["data"], key=lambda x: x["date"], reverse=True)
+        
+        # Find den nyeste vurdering med gyldige værdier for value og registration_tax
+        valid_appraisal = None
+        for appraisal in sorted_appraisals:
+            if appraisal.get("value") is not None and appraisal.get("registration_tax") is not None:
+                valid_appraisal = appraisal
+                break
+        
+        # Hvis ingen gyldig vurdering blev fundet, brug den nyeste uanset værdier
+        if valid_appraisal is None:
+            valid_appraisal = sorted_appraisals[0]
+            print("Advarsel: Nyeste vurdering mangler værdier for value eller registration_tax")
+        
+        # Hent export_refund_ceiling hvis tilgængelig
+        export_refund_ceiling = appraisals.get("export_refund_ceiling")
+        
         return {
-            'retail_price': latest_appraisal.get('original_price'),
-            'evaluation': latest_appraisal.get('value', 0),
-            'registration_tax': latest_appraisal.get('registration_tax', 0)
+            'retail_price': valid_appraisal.get('original_price'),
+            'evaluation': valid_appraisal.get('value', 0),
+            'registration_tax': valid_appraisal.get('registration_tax', 0),
+            'export_refund_ceiling': export_refund_ceiling
         }
     except Exception as e:
         raise Exception(f"Fejl ved hentning af evaluerings data: {e}")
+
+
 
 
 def calculate_vehicle_age(registration_date):
@@ -515,7 +533,7 @@ def update_vehicle_data(sheets, vehicle_type, total_weight, handelspris, new_pri
         ).execute()
 
 
-def get_export_tax(sheets, vehicle_type, registration_tax):
+def get_export_tax(sheets, vehicle_type, registration_tax, export_refund_ceiling):
     # Hent eksportafgift fra sheet
     tax_range = 'Brugte Varebiler!G32' if vehicle_type == "Varebil" else 'finalTax01'
     result = sheets.values().get(
@@ -526,9 +544,14 @@ def get_export_tax(sheets, vehicle_type, registration_tax):
     # Hent værdien fra sheet
     export_tax = float(result.get('values', [[0]])[0][0])
     registration_tax = float(registration_tax)
+    
+    # Hvis export_refund_ceiling er tilgængeligt, brug det som øvre grænse
+    if export_refund_ceiling is not None:
+        return min(export_tax, float(export_refund_ceiling))
+    else:
+        # Ellers brug den gamle logik
+        return min(export_tax, registration_tax)
 
-    # Returner den mindste værdi
-    return min(export_tax, registration_tax)
 
 def calculate_new_price(eval_data, manual_price=None):
     if manual_price is not None:
@@ -751,7 +774,8 @@ def main():
 
             # I main-funktionen
             registration_tax = eval_data['registration_tax']
-            export_tax = get_export_tax(sheets, vehicle_type, registration_tax)
+            export_refund_ceiling = eval_data.get('export_refund_ceiling')
+            export_tax = get_export_tax(sheets, vehicle_type, registration_tax, export_refund_ceiling)
 
             brand = basic_data.get('brand', 'N/A')
             model = basic_data.get('model', 'N/A')
@@ -764,7 +788,7 @@ def main():
                 print(f"Totalvægt: {total_weight} kg")
             print(f"Køretøj: {vehicle_info}")
             print(f"Nypris: {new_price:,.2f} kr.")
-            print(f"Reg. afgift: {registration_tax}")
+            print(f"Reg. afgift: {export_refund_ceiling:,.2f} kr.")
             print(f"Eksportafgift: {export_tax:.2f} kr.")
             reduced_tax = calculate_reduced_tax(export_tax, vehicle_type)
 
@@ -809,5 +833,5 @@ def main():
             continue
 
 if __name__ == "__main__":
-    check_for_updates()
+    check_for_updates
     main()
